@@ -56,7 +56,12 @@ end
 local tArgs = { ... }
 local type = "basic"
 
-local supported = { basic = 1, miner = 1, minerhost = 1, filehost = 1, mbs = 1 }
+local supported = { basic = 1, miner = 1, minerhost = 1, filehost = 1, tablet = 1, mbs = 1 }
+local codePaths = {
+  miner = "turtles",
+  minerhost = "minerHost",
+  tablet = "tablet"
+}
 if #tArgs == 1 then
   type = tArgs[1]
 else
@@ -113,13 +118,7 @@ if not fs.exists("/mbs.lua") or type == "mbs" then
 end
 
 settings.set("setup-type", type)
-local codePath
-if type == "miner" then
-  codePath = "turtles"
-end
-if type == "minerhost" then
-  codePath = "minerHost"
-end
+local codePath = codePaths[type]
 
 if codePath ~= nil then
   settings.set("code-subDir", codePath)
@@ -141,7 +140,6 @@ if codePath ~= nil then
 end
 
 if type == "filehost" then
-  writeUtilLoader()
   local fileScript = fs.open("startup/02_filestarter.lua", "w")
   fileScript.write("multishell.launch(_ENV, \"/filehost.lua\", \"/meeees\")\n")
   fileScript.write("print(\"if filehost doesn't run, it must be manually installed on the machine\")\n")

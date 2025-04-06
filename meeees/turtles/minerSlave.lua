@@ -12,11 +12,16 @@ local function getStatus(dmsg, id)
   rednet.send(id, utils.sed(selfStatus()), "minerDispatch")
 end
 
+local function sendMineUpdate(dmsg, id)
+  rednet.send(id, utils.sed(dmsg), "minerDispatch")
+end
+
 --[[
   This function is a coroutine that will mine out a given box
   Over the course of the program, it will yield with steps/fuel taken and total required
 --]]
-local function miningTask(size)
+local function miningTask(startPos, endPos)
+
 end
 
 local function doMine(dmsg, id)
@@ -35,15 +40,16 @@ local function doMine(dmsg, id)
   local depth = endPos.z - startPos.z
   local width = endPos.x - startPos.x
 
+  -- Organized so opposite corners are +4 from each other
   local corners = {
     startPos,
     utils.vec3.new(startPos.x + width, startPos.y, startPos.z),
     utils.vec3.new(startPos.x + width, startPos.y + height, startPos.z),
-    utils.vec3.new(startPos.x + width, startPos.y + height, startPos.z + depth),
     utils.vec3.new(startPos.x + width, startPos.y, startPos.z + depth),
-    utils.vec3.new(startPos.x, startPos.y + height, startPos.z),
+    utils.vec3.new(startPos.x + width, startPos.y + height, startPos.z + depth),
     utils.vec3.new(startPos.x, startPos.y + height, startPos.z + depth),
     utils.vec3.new(startPos.x, startPos.y, startPos.z + depth),
+    utils.vec3.new(startPos.x, startPos.y + height, startPos.z),
   }
   local curPos = utils.vec3.new(gps.locate())
   local distances = utils.map(corners, function(v)
@@ -56,10 +62,23 @@ local function doMine(dmsg, id)
     end
   end
 
-  utils.moveTo(corners[i], true)
+  utils.moveTo(corners[lowest], true)
 
-  --local mineTask = coroutine.create(miningTask)
-  --local taken, required = mineTask.resume()
+  local mineTask = coroutine.create(miningTask)
+  while true do
+    local taken, required = mineTask.resume(corners[lowest], corners[((lowest + 3) % 8) + 1])
+    sendMineUpdate({
+      op = "mine",
+      progress = taken,
+      total = required,
+      startPos = startPos,
+      endPos = endPos,
+      pos = utils.vec3.new(gps.locate())
+    })
+    if taken == required then
+      break
+    end
+  end
 end
 
 local function getChunkData(dmsg, id)
@@ -73,7 +92,7 @@ local function getChunkData(dmsg, id)
     }), "minerDispatch")
     return
   end
-  --utils.moveTo(dmsg.pos)
+  utils.moveTo(dmsg.pos)
   rednet.send(id, utils.sed({
     op = "chunkData",
     pos = dmsg.pos,

@@ -86,6 +86,9 @@ local vec2 = {
   end,
   toString = function(v)
     return "(" .. v.x .. ", " .. v.y .. ")"
+  end,
+  eq = function(v1, v2)
+    return v1.x == v2.x and v1.y == v2.y
   end
 }
 
@@ -117,6 +120,9 @@ local vec3 = {
   end,
   toString = function(v)
     return "(" .. v.x .. ", " .. v.y .. ", " .. v.z .. ")"
+  end,
+  eq = function(v1, v2)
+    return v1.x == v2.x and v1.y == v2.y and v1.z == v2.z
   end
 }
 
@@ -162,11 +168,15 @@ local function getItemFrom(position, type, amt)
   local myPos = { x = x, y = y, z = z }
 end
 
-local function searchInventory(itemName)
+local function searchInventory(itemName, exactMatch)
+  exactMatch = def(exactMatch, true)
   local slots = {}
   local total = 0
   for i = 1, 16 do
-    if turtle.getItemDetail(i) ~= nil and turtle.getItemDetail(i).name == itemName then
+    local detail = turtle.getItemDetail(i)
+    if turtle.getItemDetail(i) ~= nil and
+        ((exactMatch and itemName == detail.name) or
+          (not exactMatch and string.find(detail.name, itemName) ~= nil)) then
       local c = turtle.getItemCount(i)
       slots[i] = c
       total = total + c
@@ -290,6 +300,16 @@ local function getChunkStart(pos)
   )
 end
 
+local function getAdjacentChunks(pos)
+  pos = getChunkStart(pos)
+  return {
+    vec3.new(pos.x - 16, pos.y, pos.z),
+    vec3.new(pos.x + 16, pos.y, pos.z),
+    vec3.new(pos.x, pos.y, pos.z + 16),
+    vec3.new(pos.x, pos.y, pos.z - 16),
+  }
+end
+
 local bannedMines = { "computercraft", "chest", "shulker" }
 -- returns movement success and direction of move
 local function allowMining(blockPresent, blockData)
@@ -398,6 +418,7 @@ local function lookAt(pos)
 end
 
 local function stepForward(miningAllowed)
+  miningAllowed = def(miningAllowed, true)
   if not turtle.forward() then
     if not miningAllowed or not allowMining(turtle.inspect()) then
       return false
@@ -409,6 +430,7 @@ local function stepForward(miningAllowed)
 end
 
 local function stepUp(miningAllowed)
+  miningAllowed = def(miningAllowed, true)
   if not turtle.up() then
     if not miningAllowed or not allowMining(turtle.inspectUp()) then
       return false
@@ -420,6 +442,7 @@ local function stepUp(miningAllowed)
 end
 
 local function stepDown(miningAllowed)
+  miningAllowed = def(miningAllowed, true)
   if not turtle.down() then
     if not miningAllowed or not allowMining(turtle.inspectDown()) then
       return false
@@ -559,10 +582,14 @@ utils = {
   all = all,
   select = select,
   getChunkStart = getChunkStart,
+  getAdjacentChunks = getAdjacentChunks,
   reloadUtils = reloadUtils,
   pullCode = pullCode,
   move = move,
   moveTo = moveTo,
+  stepUp = stepUp,
+  stepDown = stepDown,
+  stepForward = stepForward,
   lookAt = lookAt,
   dirBetween = dirBetween,
   getFacing = getFacing,
