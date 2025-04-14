@@ -393,7 +393,11 @@ while true do
       local owner = peripheral.call(invM, "getOwner")
       if username == owner and parsed == false then
         parsed = true
-        local resp = parseCommand(invM, message:sub(#command_prefix + 1, #message))
+        local command_substr = message:sub(#command_prefix + 1, #message)
+        local ok, resp = pcall(parseCommand, invM, command_substr)
+        if not ok then
+          resp = errorMessage(command_substr, resp)
+        end
         chat.sendFormattedMessageToPlayer(textutils.serializeJSON(resp), username, identity, "{}", "&c")
       end
     end
