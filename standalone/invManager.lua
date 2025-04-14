@@ -2,7 +2,8 @@ inv_pairs = {
   ["inventoryManager_1"] = "minecraft:chest_0",
   ["inventoryManager_4"] = "minecraft:chest_1",
   ["inventoryManager_3"] = "minecraft:chest_2",
-  ["inventoryManager_2"] = "minecraft:chest_3",
+  ["inventoryManager_5"] = "minecraft:chest_3",
+  ["inventoryManager_5"] = "minecraft:chest_4",
 }
 
 identity = "InvOS"
@@ -108,10 +109,11 @@ end
 
 local function clearChest(chestName)
   local chest = peripheral.wrap(chestName)
+  local storagePeriph = peripheral.wrap(storage)
   local l = chest.list()
   local r = 0
   for slot, i in pairs(l) do
-    r = r + storage.pullItems(chestName, slot)
+    r = r + storagePeriph.pullItems(chestName, slot)
   end
   return r
 end
@@ -332,7 +334,10 @@ local function parseCommand(invM, cmd)
       if matchLength == 0 then
         return errorMessage(cmds[1], ("Item name '%s' doesn't exist in player inventory"):format(cmds[2]))
       end
-      local slot, item = searchPerfectMatch(matches, cmds[2]) or nth(matches, 0)
+      local slot, item = searchPerfectMatch(matches, cmds[2])
+      if not slot or not item then
+        slot, item = nth(matches, 0)
+      end
       if item.name ~= cmds[2] and matchLength ~= 1 then
         return searchResFormat(cmds[2], matches, genPush,
          "Item name '%s' not specific enough, showing matches:\n"
@@ -342,7 +347,7 @@ local function parseCommand(invM, cmd)
       local chest = peripheral.wrap(inv_pairs[invM]) or error("Chest doesn't exist anymore!", 0)
       local requested_count = tonumber(cmds[3]) or item.count
       local ret = {}
-      local removed = inv.removeItemFromPlayer("up", {name=item.name, fromSlot=slot, count=requested_count})
+      local removed = inv.removeItemFromPlayer("up", {name=item.name, count=requested_count})
       if removed < requested_count then
         table.insert(ret, {
           {text = "[WARN]", color = "yellow" },
