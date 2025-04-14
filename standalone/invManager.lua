@@ -214,16 +214,30 @@ local function genPush(name, cnt)
   }
 end
 
+-- Minecraft only has a chat history of 100 lines, we take this -3 for your command and top text
+chatHistoryMax = 100 - 3
 local function searchResFormat(term, itemList, genInteract, msg)
   local m = msg or "The following items matched the term '%s':\n"
   local ret = {
     {text = (m):format(term)},
   }
+  local cnt = 0
+  local max = 0
   for _, i in pairs(itemList) do
+    if cnt < chatHistoryMax then
+      table.insert(ret, {
+        {text = "["},
+        genInteract(i.name, 1),
+        {text = ("] : %s - %d\n"):format(i.name, i.count)},
+      })
+      cnt = cnt + 1
+    end
+    max = max + 1
+  end
+  if cnt >= chatHistoryMax then
     table.insert(ret, {
-      {text = "["},
-      genInteract(i.name, 1),
-      {text = ("] : %s - %d\n"):format(i.name, i.count)},
+      {text = "[WARN]", color = "yellow"},
+      {text = (" : There were %d results but we could only display %d due to chat history limits"):format(max, cnt), color = "white"}
     })
   end
   return ret
