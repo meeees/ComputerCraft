@@ -23,26 +23,30 @@ def untokenize(l):
     return tokenize.untokenize(l).decode('utf-8')
 
 def tags_to_strs(args):
-    token_iter = tokenize.tokenize(BytesIO(args.encode('utf-8')).readline)
-    results = []
-    in_tag = False
-    tagval = ""
-    # Make tags strings
-    for toknum, tokval, _, _, _ in token_iter:
-        if in_tag:
-            if toknum == token.OP and tokval == '>':
-                in_tag = False
-                results.append((token.STRING, '"%s"' % tagval))
-                tagval = ""
-                continue
-            else:
-                tagval += tokval
-                continue
-        if toknum == token.OP and tokval == '<':
-            in_tag = True
-            continue
-        results.append((toknum, tokval))
-    return untokenize(results)
+    return args.replace('<', '"').replace('>', '"')
+    # This code fails if a tag looks like '<abc:1_test>' because the <, abc, : are all tokens
+    #  and then 1_test is tokenized as a decimal and fails. So we changed it to the .replace
+    #token_iter = tokenize.tokenize(BytesIO(args.encode('utf-8')).readline)
+    #results = []
+    #in_tag = False
+    #tagval = ""
+    ## Make tags strings
+    #for toknum, tokval, _, _, _ in token_iter:
+    #    print(toknum, tokval)
+    #    if in_tag:
+    #        if toknum == token.OP and tokval == '>':
+    #            in_tag = False
+    #            results.append((token.STRING, '"%s"' % tagval))
+    #            tagval = ""
+    #            continue
+    #        else:
+    #            tagval += tokval
+    #            continue
+    #    if toknum == token.OP and tokval == '<':
+    #        in_tag = True
+    #        continue
+    #    results.append((toknum, tokval))
+    #return untokenize(results)
 
 def get_lists(token_stream, start, end, sep=',', potential_new='([{', potential_end=')]}', in_list=False, top_level=True, only_list=False, to_remove=[token.NL]):
     #print('enter get_lists with ', start, end, in_list)
