@@ -7,7 +7,7 @@ inv_pairs = {
 
 identity = "InvOS"
 command_prefix = "!inv "
-storage = peripheral.wrap("ars_nouveau:storage_lectern_1") or error("No inventory attached!", 0)
+storage = "ars_nouveau:storage_lectern_1"
 chat = peripheral.find("chatBox") or error("No chatbox attached!", 0)
 
 -- TODO: Better inventory management helpers
@@ -94,7 +94,8 @@ help = {
   {text = "  usage: '"..command_prefix.."push <item_name> [count=stack_size]'\n"},
 }
 
-local function searchStorage(inventory, term)
+local function searchStorage(inv_name, term)
+  local inventory = peripheral.wrap(inv_name) or error("No inventory attached!", 0)
   local l = inventory.list()
   local ret = {}
   for slot, i in pairs(l) do
@@ -126,6 +127,59 @@ local function searchPlayerInventory(invM, term)
     end
   end
   return ret
+end
+
+local function getSearchFunc(name)
+  if string.find(name, "minecraft:chest") or string.find(name, "ars_nouveau:storage_lectern") then
+    return searchStorage
+  end
+  if string.find(name, "inventoryManager") then
+    return searchPlayerInventory
+  end
+end
+
+local function collectResults(searchRes)
+  local ret = {}
+  for slot, item in pairs(searchRes) do
+    ret[item.name] = (ret[item.name] or 0) + item.count
+  end
+  return ret
+end
+
+-- These slot numbers will absolutely be wrong, do not use them for inv access
+local function collectSearchFmtResults(searchRes)
+  local ret = {}
+  local collected = collectResults(searchRes)
+  for n, cnt in pairs(collected) do
+    table.insert(ret, {name = n, count = cnt})
+  end
+  return ret
+end
+
+local function searchPerfectMatch(searchRes, term)
+  for slot, item in pairs(searchRes) do
+    if item.name == term then
+      return slot, item
+    end
+  end
+  return nil
+end
+
+local function pullArbitraryAmount(from, to, itemName, count)
+  print(from, to, itemName, count)
+  local fromSearch = getSearchFunc(from)(from, itemName)
+  local fromCollected = collectResults(fromSearch)
+  local fromPeriph = peripheral.wrap(from)
+
+  local sentCount = 0
+  -- If we fail to send then this'll still iter out but the sentCount will be accurate
+  for slot, item in pairs(fromSearch) do
+    if sentCount < count and item.name == itemName then
+      local sent = fromPeriph.pushItems(to, slot, count - sentCount)
+      sentCount = sentCount + sent
+    end
+  end
+  return sentCount
 end
 
 local function errorMessage(cmd, reason)
@@ -190,18 +244,21 @@ local function parseCommand(invM, cmd)
         return errorMessage(cmds[1], "Not enough arguments, requires search term")
       end
       local stored = searchStorage(storage, cmds[2])
-      return searchResFormat(cmds[2], stored, genPull)
+      return searchResFormat(cmds[2], collectSearchFmtResults(stored), genPull)
     end,
     ["pull"] = function(invM, cmds)
       if #cmds < 3 then
         return errorMessage(cmds[1], "Not enough arguments, requires item name and count")
       end
-      local matches = searchStorage(storage, cmds[2])
+      local matches = collectSearchFmtResults(searchStorage(storage, cmds[2]))
       local matchLength = length(matches)
       if matchLength == 0 then
         return errorMessage(cmds[1], ("Item name '%s' doesn't exist in storage"):format(cmds[2]))
       end
-      local slot, item = nth(matches, 0)
+      local slot, item = searchPerfectMatch(matches, cmds[2])
+      if not slot or not item then
+        slot, item = nth(matches, 0)
+      end
       if item.name ~= cmds[2] and matchLength ~= 1 then
         return searchResFormat(cmds[2], matches, genPull,
          "Item name '%s' not specific enough, showing matches:\n"
@@ -221,7 +278,8 @@ local function parseCommand(invM, cmd)
         })
         requested_count = item.count
       end
-      local transferred = storage.pushItems(inv_pairs[invM], slot, requested_count)
+      local transferred = pullArbitraryAmount(storage, inv_pairs[invM], item.name, requested_count)
+      --local transferred = storage.pushItems(inv_pairs[invM], slot, requested_count)
       if transferred < requested_count then
         table.insert(ret, {
           {text = "[WARN]", color = "yellow" },
@@ -249,18 +307,18 @@ local function parseCommand(invM, cmd)
     ["list"] = function(invM, cmds)
       local term = cmds[2] or ""
       local matches = searchPlayerInventory(invM, term)
-      return searchResFormat(term, matches, genPush)
+      return searchResFormat(term, collectSearchFmtResults(matches), genPush)
     end,
     ["push"] = function(invM, cmds)
       if #cmds < 2 then
         return errorMessage(cmds[1], "Not enough arguments, requires item name and optionally count")
       end
-      local matches = searchPlayerInventory(invM, cmds[2])
+      local matches = collectSearchFmtResults(searchPlayerInventory(invM, cmds[2]))
       local matchLength = length(matches)
       if matchLength == 0 then
         return errorMessage(cmds[1], ("Item name '%s' doesn't exist in player inventory"):format(cmds[2]))
       end
-      local slot, item = nth(matches, 0)
+      local slot, item = searchPerfectMatch(matches, cmds[2]) or nth(matches, 0)
       if item.name ~= cmds[2] and matchLength ~= 1 then
         return searchResFormat(cmds[2], matches, genPush,
          "Item name '%s' not specific enough, showing matches:\n"
