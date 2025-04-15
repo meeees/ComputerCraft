@@ -44,6 +44,16 @@ local function nth(tbl, n)
   return nil
 end
 
+local function findPeripherals(term)
+  local ret = {}
+  for _, p in pairs(peripheral.getNames()) do
+    if string.find(p, term) then
+      table.insert(p)
+    end
+  end
+  return ret
+end
+
 help = {
   {text = "The following commands are currently available:\n"},
   {
@@ -387,8 +397,13 @@ local function parseCommand(invM, cmd)
   return {{text = "Invalid output from parseCommand"}}
 end
 
+local function runRoller(name)
+  local transferred = pullArbitraryAmount(storage, name, "minecraft:iron_ingot", 1)
+  local pulled = pullArbitraryAmount(name, storage, "thermal:iron_plate", 64)
+end
 
 local function onTimerTick()
+  
 end
 
 while true do
