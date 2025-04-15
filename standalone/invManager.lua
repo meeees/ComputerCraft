@@ -6,6 +6,8 @@ inv_pairs = {
   ["inventoryManager_5"] = "minecraft:chest_4",
 }
 
+-- Seconds between tick procs
+tickTime = 1
 identity = "InvOS"
 command_prefix = "!inv "
 storage = "ars_nouveau:storage_lectern_1"
@@ -385,9 +387,14 @@ local function parseCommand(invM, cmd)
   return {{text = "Invalid output from parseCommand"}}
 end
 
+
+local function onTimerTick()
+end
+
 while true do
-  local event, username, message, uuid, isHidden = os.pullEvent("chat")
-  if message:sub(1, #command_prefix) == command_prefix then
+  local timer_id = os.startTimer(tickTime)
+  local event, username, message, uuid, isHidden = os.pullEvent()
+  if event == "chat" and message:sub(1, #command_prefix) == command_prefix then
     local parsed = false
     for invM, chestM in pairs(inv_pairs) do
       local owner = peripheral.call(invM, "getOwner")
@@ -405,6 +412,14 @@ while true do
       chat.sendFormattedMessageToPlayer(textutils.serializeJSON({
         {text = ("You aren't a registered user with %s. Please register underneath the main base"):format(identity)},
       }), username, identity, "{}", "&c")
+    end
+  end
+  if event == "timer" and username == timer_id then
+    timer_id = os.startTimer(tickTime)
+    local ok, ret = pcall(onTimerTick)
+    if not ok then
+      print("Timer tick failed! Reason:")
+      print(ret)
     end
   end
 end
