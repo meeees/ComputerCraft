@@ -677,35 +677,46 @@ local function onTimerTick()
   end
 end
 
-local timer_id = os.startTimer(tickTime)
-while true do
-  local event, username, message, uuid, isHidden = os.pullEvent()
-  if event == "chat" and message:sub(1, #command_prefix) == command_prefix then
-    local parsed = false
-    for invM, chestM in pairs(inv_pairs) do
-      local owner = peripheral.call(invM, "getOwner")
-      if username == owner and parsed == false then
-        parsed = true
-        local command_substr = message:sub(#command_prefix + 1, #message)
-        local ok, resp = pcall(parseCommand, invM, command_substr)
-        if not ok then
-          resp = errorMessage(command_substr, resp)
-        end
-        chat.sendFormattedMessageToPlayer(textutils.serializeJSON(resp), username, identity, "{}", "&c")
+
+local function timerThread()
+  local timer_id = os.startTimer(tickTime)
+  while true do
+    local event, id = os.pullEvent("timer")
+    if event == "timer" and id == timer_id then
+      local ok, ret = pcall(onTimerTick)
+      if not ok then
+        print("Timer tick failed! Reason:")
+        print(ret)
       end
+      timer_id = os.startTimer(tickTime)
     end
-    if parsed == false then
-      chat.sendFormattedMessageToPlayer(textutils.serializeJSON({
-        { text = ("You aren't a registered user with %s. Please register underneath the main base"):format(identity) },
-      }), username, identity, "{}", "&c")
-    end
-  end
-  if event == "timer" and username == timer_id then
-    local ok, ret = pcall(onTimerTick)
-    if not ok then
-      print("Timer tick failed! Reason:")
-      print(ret)
-    end
-    timer_id = os.startTimer(tickTime)
   end
 end
+
+local function chatThread()
+  while true do
+    local event, username, message, uuid, isHidden = os.pullEvent("chat")
+    if event == "chat" and message:sub(1, #command_prefix) == command_prefix then
+      local parsed = false
+      for invM, chestM in pairs(inv_pairs) do
+        local owner = peripheral.call(invM, "getOwner")
+        if username == owner and parsed == false then
+          parsed = true
+          local command_substr = message:sub(#command_prefix + 1, #message)
+          local ok, resp = pcall(parseCommand, invM, command_substr)
+          if not ok then
+            resp = errorMessage(command_substr, resp)
+          end
+          chat.sendFormattedMessageToPlayer(textutils.serializeJSON(resp), username, identity, "{}", "&c")
+        end
+      end
+      if parsed == false then
+        chat.sendFormattedMessageToPlayer(textutils.serializeJSON({
+          { text = ("You aren't a registered user with %s. Please register underneath the main base"):format(identity) },
+        }), username, identity, "{}", "&c")
+      end
+    end
+  end
+end
+
+parallel.waitForAll(timerThread, chatThread)
