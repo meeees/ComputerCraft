@@ -2,24 +2,24 @@ inv_pairs = {
   ["inventoryManager_1"] = "minecraft:chest_0",
   ["inventoryManager_4"] = "minecraft:chest_1",
   ["inventoryManager_3"] = "minecraft:chest_2",
-  ["inventoryManager_5"] = "minecraft:chest_3",
+  ["inventoryManager_6"] = "minecraft:chest_3",
   ["inventoryManager_5"] = "minecraft:chest_4",
 }
 
 -- Seconds between tick procs
-tickTime = 3
-identity = "InvOS"
-command_prefix = "!i "
-storage = "ars_nouveau:storage_lectern_1"
-chat = peripheral.find("chatBox") or error("No chatbox attached!", 0)
+local tickTime = 3
+local identity = "InvOS"
+local command_prefix = "!i "
+local storage = "ars_nouveau:storage_lectern_1"
+local chat = peripheral.find("chatBox") or error("No chatbox attached!", 0)
 -- user -> {item: {state: Or(more, less, exact), count: N}, ...}
-logisticsRequests = {}
-logiMap = {
+local logisticsRequests = {}
+local logiMap = {
   ["less"] = -1, --"le",
   ["more"] = 1,  --"ge",
   ["equal"] = 0, --"ee"
 }
-logiString = {
+local logiString = {
   [-1] = "less than",
   [0] = "equal to",
   [1] = "more than",
@@ -412,196 +412,197 @@ local function searchResFormat(term, itemList, genInteract, msg, separator)
   return ret
 end
 
+
+local cmd_case = {
+  ["default"] = function(invM, cmds)
+    return ("The command '%s' is not recognized, type 'help'"):format(cmds[1])
+  end,
+  ["help"] = function(invM, cmds)
+    return help
+  end,
+  ["search"] = function(invM, cmds)
+    if #cmds < 2 then
+      return errorMessage(cmds[1], "Not enough arguments, requires search term")
+    end
+    local stored = searchStorage(storage, cmds[2])
+    return searchResFormat(cmds[2], collectSearchFmtResults(stored), { genPull, genLogiAdd })
+  end,
+  ["pull"] = function(invM, cmds)
+    if #cmds < 3 then
+      return errorMessage(cmds[1], "Not enough arguments, requires item name and count")
+    end
+    local matches = collectSearchFmtResults(searchStorage(storage, cmds[2]))
+    local matchLength = length(matches)
+    if matchLength == 0 then
+      return errorMessage(cmds[1], ("Item name '%s' doesn't exist in storage"):format(cmds[2]))
+    end
+    local slot, item = searchPerfectMatch(matches, cmds[2])
+    if not slot or not item then
+      slot, item = nth(matches, 0)
+    end
+    if item.name ~= cmds[2] and matchLength ~= 1 then
+      return searchResFormat(cmds[2], matches, { genPull, genLogiAdd },
+        "Item name '%s' not specific enough, showing matches:\n"
+      )
+    end
+    local inv = peripheral.wrap(invM) or error("Inventory doesn't exist anymore!", 0)
+    local chest = peripheral.wrap(inv_pairs[invM]) or error("Chest doesn't exist anymore!", 0)
+    local requested_count = tonumber(cmds[3])
+    local ret = {}
+    if inv.getEmptySpace() == 0 then
+      return errorMessage(cmds[1], "Your inventory has no empty slots!")
+    end
+    if item.count < requested_count then
+      table.insert(ret, {
+        { text = "[WARN]",                                                                                         color = "yellow" },
+        { text = (" : Truncated request from %d to %d due to availability\n"):format(requested_count, item.count), color = "white" }
+      })
+      requested_count = item.count
+    end
+    local transferred = pullArbitraryAmount(storage, inv_pairs[invM], item.name, requested_count)
+    --local transferred = storage.pushItems(inv_pairs[invM], slot, requested_count)
+    if transferred < requested_count then
+      table.insert(ret, {
+        { text = "[WARN]",                                                                 color = "yellow" },
+        { text = (" : Only was able to grab %d items from storage\n"):format(transferred), color = "white" }
+      })
+      requested_count = transferred
+    end
+    local sentCount = inv.addItemToPlayer("up", {
+      name = item.name,
+      count = requested_count
+    })
+    if sentCount < requested_count then
+      table.insert(ret, {
+        { text = "[WARN]",                                                                                    color = "yellow" },
+        { text = (" : Added %d items to player when %d were requested\n"):format(sentCount, requested_count), color = "white" }
+      })
+      clearChest(inv_pairs[invM])
+    end
+    table.insert(ret, 1, {
+      { text = "[" }, { text = "+", color = "green" },
+      { text = ("] : Successfully pulled %d of '%s'\n"):format(sentCount, item.name) }
+    })
+    return ret
+  end,
+  ["list"] = function(invM, cmds)
+    local term = cmds[2] or ""
+    local matches = searchPlayerInventory(invM, term)
+    return searchResFormat(term, collectSearchFmtResults(matches), { genPush, genLogiAdd })
+  end,
+  ["push"] = function(invM, cmds)
+    if #cmds < 2 then
+      return errorMessage(cmds[1], "Not enough arguments, requires item name and optionally count")
+    end
+    local matches = collectSearchFmtResults(searchPlayerInventory(invM, cmds[2]))
+    local matchLength = length(matches)
+    if matchLength == 0 then
+      return errorMessage(cmds[1], ("Item name '%s' doesn't exist in player inventory"):format(cmds[2]))
+    end
+    local slot, item = searchPerfectMatch(matches, cmds[2])
+    if not slot or not item then
+      slot, item = nth(matches, 0)
+    end
+    if item.name ~= cmds[2] and matchLength ~= 1 then
+      return searchResFormat(cmds[2], matches, { genPush, genLogiAdd },
+        "Item name '%s' not specific enough, showing matches:\n"
+      )
+    end
+    local inv = peripheral.wrap(invM) or error("Inventory doesn't exist anymore!", 0)
+    local chest = peripheral.wrap(inv_pairs[invM]) or error("Chest doesn't exist anymore!", 0)
+    local requested_count = tonumber(cmds[3]) or item.count
+    local ret = {}
+    local removed = inv.removeItemFromPlayer("up", { name = item.name, count = requested_count })
+    if removed < requested_count then
+      table.insert(ret, {
+        { text = "[WARN]",                                                                   color = "yellow" },
+        { text = (" : Removed %d when %d was requested\n"):format(removed, requested_count), color = "white" }
+      })
+    end
+    local cleared = clearChest(peripheral.getName(chest))
+    if cleared < removed then
+      table.insert(ret, {
+        { text = "[WARN]",                                                                                        color = "yellow" },
+        { text = (" : Only moved %d from temp chest to storage when %d was intended\n"):format(cleared, removed), color = "white" }
+      })
+    end
+    table.insert(ret, 1, {
+      { text = "[" }, { text = "+", color = "green" },
+      { text = ("] : Successfully pushed %d of '%s'\n"):format(cleared, item.name) }
+    })
+    return ret
+  end,
+  ["lset"] = function(invM, cmds)
+    if #cmds < 4 then
+      return errorMessage(cmds[1], "Not enough arguments, requires <item name> <more|less|equal> <count>")
+    end
+    local iCount = tonumber(cmds[4])
+    local cState = logiMap[cmds[3]]
+    local itemName = cmds[2]
+    if not iCount then
+      return errorMessage(cmds[1], ("Count argument '%s' was not a valid number!"):format(cmds[4]))
+    end
+    if not cState then
+      return errorMessage(cmds[1], ("State argument '%s' was not either 'more', 'less', or 'equal'!"):format(cmds[3]))
+    end
+    local username = peripheral.call(invM, "getOwner")
+    if not logisticsRequests[username] then
+      logisticsRequests[username] = {}
+    end
+    logisticsRequests[username][itemName] = { count = iCount, state = cState }
+    saveLogiReqs()
+    return {
+      { text = "[" }, { text = "+", color = "green" },
+      { text = ("] : Successfully added logistics request for '%s' %s %d\n"):format(itemName, logiString[cState], iCount) }
+    }
+  end,
+  ["ldel"] = function(invM, cmds)
+    if #cmds < 2 then
+      return errorMessage(cmds[1], "Not enough arguments, requires <item name>")
+    end
+    local itemName = cmds[2]
+    local username = peripheral.call(invM, "getOwner")
+    if not logisticsRequests[username] then
+      return errorMessage(cmds[1], "You have no existing logistics requests")
+    end
+    if not keyExists(logisticsRequests[username], itemName) then
+      return errorMessage(cmds[1], ("You have no logistics request for '%s'"):format(itemName))
+    end
+    logisticsRequests[username][itemName] = nil
+    saveLogiReqs()
+    return {
+      { text = "[" }, { text = "+", color = "green" },
+      { text = ("] : Successfully deleted logistics request for '%s'\n"):format(itemName) }
+    }
+  end,
+  ["llist"] = function(invM, cmds)
+    local searchTerm = cmds[2] or ""
+    local username = peripheral.call(invM, "getOwner")
+    local ret = {}
+    if not logisticsRequests[username] then
+      return errorMessage(cmds[1], "You have no existing logistics requests")
+    end
+    local searchFormattedLogi = {}
+    for itemName, logiInfo in pairs(logisticsRequests[username]) do
+      table.insert(searchFormattedLogi, {
+        name = ("%s %s"):format(itemName, logiString[logiInfo.state]),
+        count = logiInfo.count,
+      })
+    end
+    return searchResFormat(searchTerm, searchFormattedLogi, { genLogiAdd, genLogiDel },
+      "The following requests match the filter '%s'\n", " ")
+  end,
+}
 local function parseCommand(invM, cmd)
   print(("cmd from user '%s': '%s'"):format(peripheral.call(invM, "getOwner"), cmd))
   local cmds = split(cmd, " ")
-  local case = {
-    ["default"] = function(invM, cmds)
-      return ("The command '%s' is not recognized, type 'help'"):format(cmds[1])
-    end,
-    ["help"] = function(invM, cmds)
-      return help
-    end,
-    ["search"] = function(invM, cmds)
-      if #cmds < 2 then
-        return errorMessage(cmds[1], "Not enough arguments, requires search term")
-      end
-      local stored = searchStorage(storage, cmds[2])
-      return searchResFormat(cmds[2], collectSearchFmtResults(stored), { genPull, genLogiAdd })
-    end,
-    ["pull"] = function(invM, cmds)
-      if #cmds < 3 then
-        return errorMessage(cmds[1], "Not enough arguments, requires item name and count")
-      end
-      local matches = collectSearchFmtResults(searchStorage(storage, cmds[2]))
-      local matchLength = length(matches)
-      if matchLength == 0 then
-        return errorMessage(cmds[1], ("Item name '%s' doesn't exist in storage"):format(cmds[2]))
-      end
-      local slot, item = searchPerfectMatch(matches, cmds[2])
-      if not slot or not item then
-        slot, item = nth(matches, 0)
-      end
-      if item.name ~= cmds[2] and matchLength ~= 1 then
-        return searchResFormat(cmds[2], matches, { genPull, genLogiAdd },
-          "Item name '%s' not specific enough, showing matches:\n"
-        )
-      end
-      local inv = peripheral.wrap(invM) or error("Inventory doesn't exist anymore!", 0)
-      local chest = peripheral.wrap(inv_pairs[invM]) or error("Chest doesn't exist anymore!", 0)
-      local requested_count = tonumber(cmds[3])
-      local ret = {}
-      if inv.getEmptySpace() == 0 then
-        return errorMessage(cmds[1], "Your inventory has no empty slots!")
-      end
-      if item.count < requested_count then
-        table.insert(ret, {
-          { text = "[WARN]",                                                                                         color = "yellow" },
-          { text = (" : Truncated request from %d to %d due to availability\n"):format(requested_count, item.count), color = "white" }
-        })
-        requested_count = item.count
-      end
-      local transferred = pullArbitraryAmount(storage, inv_pairs[invM], item.name, requested_count)
-      --local transferred = storage.pushItems(inv_pairs[invM], slot, requested_count)
-      if transferred < requested_count then
-        table.insert(ret, {
-          { text = "[WARN]",                                                                 color = "yellow" },
-          { text = (" : Only was able to grab %d items from storage\n"):format(transferred), color = "white" }
-        })
-        requested_count = transferred
-      end
-      local sentCount = inv.addItemToPlayer("up", {
-        name = item.name,
-        count = requested_count
-      })
-      if sentCount < requested_count then
-        table.insert(ret, {
-          { text = "[WARN]",                                                                                    color = "yellow" },
-          { text = (" : Added %d items to player when %d were requested\n"):format(sentCount, requested_count), color = "white" }
-        })
-        clearChest(inv_pairs[invM])
-      end
-      table.insert(ret, 1, {
-        { text = "[" }, { text = "+", color = "green" },
-        { text = ("] : Successfully pulled %d of '%s'\n"):format(sentCount, item.name) }
-      })
-      return ret
-    end,
-    ["list"] = function(invM, cmds)
-      local term = cmds[2] or ""
-      local matches = searchPlayerInventory(invM, term)
-      return searchResFormat(term, collectSearchFmtResults(matches), { genPush, genLogiAdd })
-    end,
-    ["push"] = function(invM, cmds)
-      if #cmds < 2 then
-        return errorMessage(cmds[1], "Not enough arguments, requires item name and optionally count")
-      end
-      local matches = collectSearchFmtResults(searchPlayerInventory(invM, cmds[2]))
-      local matchLength = length(matches)
-      if matchLength == 0 then
-        return errorMessage(cmds[1], ("Item name '%s' doesn't exist in player inventory"):format(cmds[2]))
-      end
-      local slot, item = searchPerfectMatch(matches, cmds[2])
-      if not slot or not item then
-        slot, item = nth(matches, 0)
-      end
-      if item.name ~= cmds[2] and matchLength ~= 1 then
-        return searchResFormat(cmds[2], matches, { genPush, genLogiAdd },
-          "Item name '%s' not specific enough, showing matches:\n"
-        )
-      end
-      local inv = peripheral.wrap(invM) or error("Inventory doesn't exist anymore!", 0)
-      local chest = peripheral.wrap(inv_pairs[invM]) or error("Chest doesn't exist anymore!", 0)
-      local requested_count = tonumber(cmds[3]) or item.count
-      local ret = {}
-      local removed = inv.removeItemFromPlayer("up", { name = item.name, count = requested_count })
-      if removed < requested_count then
-        table.insert(ret, {
-          { text = "[WARN]",                                                                   color = "yellow" },
-          { text = (" : Removed %d when %d was requested\n"):format(removed, requested_count), color = "white" }
-        })
-      end
-      local cleared = clearChest(peripheral.getName(chest))
-      if cleared < removed then
-        table.insert(ret, {
-          { text = "[WARN]",                                                                                        color = "yellow" },
-          { text = (" : Only moved %d from temp chest to storage when %d was intended\n"):format(cleared, removed), color = "white" }
-        })
-      end
-      table.insert(ret, 1, {
-        { text = "[" }, { text = "+", color = "green" },
-        { text = ("] : Successfully pushed %d of '%s'\n"):format(cleared, item.name) }
-      })
-      return ret
-    end,
-    ["lset"] = function(invM, cmds)
-      if #cmds < 4 then
-        return errorMessage(cmds[1], "Not enough arguments, requires <item name> <more|less|equal> <count>")
-      end
-      local iCount = tonumber(cmds[4])
-      local cState = logiMap[cmds[3]]
-      local itemName = cmds[2]
-      if not iCount then
-        return errorMessage(cmds[1], ("Count argument '%s' was not a valid number!"):format(cmds[4]))
-      end
-      if not cState then
-        return errorMessage(cmds[1], ("State argument '%s' was not either 'more', 'less', or 'equal'!"):format(cmds[3]))
-      end
-      local username = peripheral.call(invM, "getOwner")
-      if not logisticsRequests[username] then
-        logisticsRequests[username] = {}
-      end
-      logisticsRequests[username][itemName] = { count = iCount, state = cState }
-      saveLogiReqs()
-      return {
-        { text = "[" }, { text = "+", color = "green" },
-        { text = ("] : Successfully added logistics request for '%s' %s %d\n"):format(itemName, logiString[cState], iCount) }
-      }
-    end,
-    ["ldel"] = function(invM, cmds)
-      if #cmds < 2 then
-        return errorMessage(cmds[1], "Not enough arguments, requires <item name>")
-      end
-      local itemName = cmds[2]
-      local username = peripheral.call(invM, "getOwner")
-      if not logisticsRequests[username] then
-        return errorMessage(cmds[1], "You have no existing logistics requests")
-      end
-      if not keyExists(logisticsRequests[username], itemName) then
-        return errorMessage(cmds[1], ("You have no logistics request for '%s'"):format(itemName))
-      end
-      logisticsRequests[username][itemName] = nil
-      saveLogiReqs()
-      return {
-        { text = "[" }, { text = "+", color = "green" },
-        { text = ("] : Successfully deleted logistics request for '%s'\n"):format(itemName) }
-      }
-    end,
-    ["llist"] = function(invM, cmds)
-      local searchTerm = cmds[2] or ""
-      local username = peripheral.call(invM, "getOwner")
-      local ret = {}
-      if not logisticsRequests[username] then
-        return errorMessage(cmds[1], "You have no existing logistics requests")
-      end
-      local searchFormattedLogi = {}
-      for itemName, logiInfo in pairs(logisticsRequests[username]) do
-        table.insert(searchFormattedLogi, {
-          name = ("%s %s"):format(itemName, logiString[logiInfo.state]),
-          count = logiInfo.count,
-        })
-      end
-      return searchResFormat(searchTerm, searchFormattedLogi, { genLogiAdd, genLogiDel },
-        "The following requests match the filter '%s'\n", " ")
-    end,
-  }
   -- Run the case statement
-  local f = case[cmds[1]]
+  local f = cmd_case[cmds[1]]
   local ret = nil
   if (f) then
     ret = f(invM, cmds)
   else
-    ret = case["default"](invM, cmds)
+    ret = cmd_case["default"](invM, cmds)
   end
   if type(ret) == "string" then
     return { { text = ret } }
