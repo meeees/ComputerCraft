@@ -39,7 +39,7 @@ end
 local chat = peripheral.find("chatBox") or error("No chatbox attached!", 0)
 local function errorMessage(cmd, reason)
   return {
-    { text = "[ERR]",                                       color = "red" },
+    { text = "[ERR]",                                   color = "red" },
     { text = (" : Failed '%s' because:\n"):format(cmd), color = "white" },
     { text = " " .. reason },
   }
@@ -48,19 +48,19 @@ end
 local function genChatList(data, genEntry, prefix, extraArg)
   local ret = {}
   if prefix then
-    table.insert(ret, {text = prefix .. "\n"})
+    table.insert(ret, { text = prefix .. "\n" })
   end
-  for k,v in pairs(data) do
+  for k, v in pairs(data) do
     table.insert(ret, genEntry(v, k, extraArg))
-    table.insert(ret, {text = "\n"})
+    table.insert(ret, { text = "\n" })
   end
   return ret
 end
 
 local function suggestCommand(textPrompt, textColor, cmd)
   return {
-    text = textPrompt, 
-    underlined = true, 
+    text = textPrompt,
+    underlined = true,
     color = textColor or "red",
     clickEvent = {
       action = "suggest_command",
@@ -71,8 +71,8 @@ end
 
 local function statusMessage(message)
   return {
-      { text = "[" }, { text = "+", color = "green" },
-      { text = ("] : %s\n"):format(message) }
+    { text = "[" }, { text = "+", color = "green" },
+    { text = ("] : %s\n"):format(message) }
   }
 end
 
@@ -118,7 +118,7 @@ function InvManager:search(filter)
   local tagFilter = filter.tag
   local nameFilter = filter.name
   local count = 0
-  for i=1,self.size do
+  for i = 1, self.size do
     local item = inv[i]
     if item then
       -- if tagFilter then
@@ -156,6 +156,7 @@ function InvManager:pushItem(dest, filter, count)
   end
   return pushed
 end
+
 -- end InvManager
 
 -- TODO: Crafting manager
@@ -192,7 +193,7 @@ function LogiSystem:pullItem(toInv, item, count)
   local pulled = 0
   local providersUpdated = self.providersUpdated
   print("Checking providers")
-  for i=1,#providers do
+  for i = 1, #providers do
     local name = providers[i]
     local inv = InvManager:new(name)
     if not providersUpdated then
@@ -203,11 +204,11 @@ function LogiSystem:pullItem(toInv, item, count)
     end
   end
   self.providersUpdated = true
-  if pulled < count then 
+  if pulled < count then
     local storersUpdated = self.storersUpdated
     local storers = self.storers
     print("checking storers ", #storers)
-    for i=1,#storers do
+    for i = 1, #storers do
       local name = storers[i]
       print("checking storer " .. name)
       local inv = InvManager:new(name)
@@ -225,11 +226,11 @@ function LogiSystem:pullItem(toInv, item, count)
 end
 
 function LogiSystem:tickRequests()
-  for name,requests in pairs(self.requesters) do
+  for name, requests in pairs(self.requesters) do
     local inv = InvManager:new(name)
     -- Update the inventory
     inv:getInv(true)
-    for i=1,#requests do
+    for i = 1, #requests do
       local req = requests[i]
       local results, count = inv:search(req)
       -- print(("Found %d for %s"):format(count, textutils.serialize(req)))
@@ -246,11 +247,11 @@ end
 function LogiSystem:addRequest(inv, itemReq)
   local requests = self.requesters[inv]
   if not requests then
-    self.requesters[inv] = {itemReq}
+    self.requesters[inv] = { itemReq }
     self:save()
     return
   end
-  for i=1,#requests do
+  for i = 1, #requests do
     local req = requests[i]
     if (itemReq.name and (req.name == itemReq.name)) or (itemReq.tag and (req.tag == itemReq.tag)) then
       req.count = itemReq.count
@@ -264,20 +265,23 @@ end
 
 function LogiSystem:removeRequest(inv, itemReq)
   local requests = self.requesters[inv]
+  local removeInd = 0
   if requests then
-    for i=1,#requests do
+    for i = 1, #requests do
       local req = requests[i]
-      if req.item == itemReq.item or req.tag == itemReq then
-        requests[i] = nil
-        self:save()
+      if req.name == itemReq or req.tag == itemReq then
+        removeInd = i
       end
     end
+  end
+  if removeInd > 0 then
+    table.remove(requests, removeInd)
   end
 end
 
 function LogiSystem:addStorer(inv)
   local storers = self.storers
-  for i=1,#storers do
+  for i = 1, #storers do
     if storers[i] == inv then
       return
     end
@@ -288,7 +292,7 @@ end
 
 function LogiSystem:addProvider(inv)
   local providers = self.providers
-  for i=1,#providers do
+  for i = 1, #providers do
     if providers[i] == inv then
       return
     end
@@ -299,7 +303,7 @@ end
 
 function LogiSystem:removeStorer(inv)
   local storers = self.storers
-  for i=1,#storers do 
+  for i = 1, #storers do
     local invName = storers[i]
     if invName == inv then
       table.remove(self.storers, i)
@@ -311,7 +315,7 @@ end
 
 function LogiSystem:removeProvider(inv)
   local providers = self.providers
-  for i=1,#providers do 
+  for i = 1, #providers do
     local invName = providers[i]
     if invName == inv then
       table.remove(self.providers, i)
@@ -353,7 +357,7 @@ end
 -- - usage : usage args text
 -- - arg : passed to the command handler first if present
 function CommandHandler:addCommand(cmd, func, suggestedArgs, helpText, usage, arg)
-  self.commands[cmd] = {func, suggestedArgs, helpText, usage, arg}
+  self.commands[cmd] = { func, suggestedArgs, helpText, usage, arg }
 end
 
 -- Takes in a single cmd name
@@ -367,10 +371,10 @@ function CommandHandler:runCommand(cmds)
   -- print("running cmd handler for " .. self.prefix)
   -- print(textutils.serialize(cmds))
   if cmds[1] == self.prefix then
-    for k,v in pairs(self.commands) do
+    for k, v in pairs(self.commands) do
       if k == cmds[2] then
         -- print("matched on " .. k)
-        local passedArgs = {unpack(cmds, 2, #cmds)}
+        local passedArgs = { unpack(cmds, 2, #cmds) }
         if v[5] then
           return v[1](v[5], passedArgs, self.data)
         else
@@ -399,7 +403,7 @@ function CommandHandler:printHelp(expand)
   local expandChildren = expand or false
   local helpType = type(helpPrefix)
   if helpType == "string" then
-    table.insert(ret, {text = helpPrefix})
+    table.insert(ret, { text = helpPrefix })
   else
     if helpType == "table" then
       table.insert(ret, helpPrefix)
@@ -407,13 +411,13 @@ function CommandHandler:printHelp(expand)
   end
   local cmdPrefix = self:getPrefix()
   if expandChildren then
-    for k,v in pairs(self.commands) do
+    for k, v in pairs(self.commands) do
       local helpDat = v[3]
       table.insert(ret, suggestCommand(k, self.cmdColor, ("%s %s %s"):format(cmdPrefix, k, v[2] or "")))
-      table.insert(ret, {text = " : "})
+      table.insert(ret, { text = " : " })
       local typeHelp = type(helpDat)
       if typeHelp == "string" then
-        table.insert(ret, {text = helpDat})
+        table.insert(ret, { text = helpDat })
       else
         if typeHelp == "table" then
           table.insert(ret, helpDat)
@@ -423,10 +427,10 @@ function CommandHandler:printHelp(expand)
           end
         end
       end
-      if v[4] then 
-        table.insert(ret, {text = ("\nusage: %s %s"):format(cmdPrefix, v[4])})
+      if v[4] then
+        table.insert(ret, { text = ("\nusage: %s %s"):format(cmdPrefix, v[4]) })
       end
-      table.insert(ret, {text = "\n"})
+      table.insert(ret, { text = "\n" })
     end
   end
   return ret
@@ -443,8 +447,10 @@ end
 
 -- Set up command handlers
 local mainCmdHandler = CommandHandler:new(basePrefix, nil, "The following commands are available:\n")
-local mngCmdHandler = CommandHandler:new("mng", nil, "Management subsystem has the following commands available:\n", "red", mainCmdHandler:getPrefix())
-local logiCmdHandler = CommandHandler:new("logi", nil, "Logistics subsystem has the following commands available:\n", "blue", mainCmdHandler:getPrefix())
+local mngCmdHandler = CommandHandler:new("mng", nil, "Management subsystem has the following commands available:\n",
+  "red", mainCmdHandler:getPrefix())
+local logiCmdHandler = CommandHandler:new("logi", nil, "Logistics subsystem has the following commands available:\n",
+  "blue", mainCmdHandler:getPrefix())
 mngCmdHandler:addCommand("help", runHelp, nil, "Prints this menu", nil, mngCmdHandler)
 
 mainCmdHandler:addCommand("help", runHelp, nil, "Prints this menu", nil, mainCmdHandler)
@@ -452,13 +458,13 @@ mainCmdHandler:addCommand(mngCmdHandler.prefix, runCommands, "help", "Management
 mainCmdHandler:addCommand(logiCmdHandler.prefix, runCommands, "help", "Logistics subsystem commands", nil, logiCmdHandler)
 
 local function testCmd(cmds)
-  return {text = "test\n"}
+  return { text = "test\n" }
 end
 mngCmdHandler:addCommand("test", testCmd, nil, "Test command")
 
 local function listPeripherals()
-  return genChatList(peripheral.getNames(), function(p) 
-    return {text = ("%s types: %s"):format(p, textutils.serializeJSON({peripheral.getType(p)}))}
+  return genChatList(peripheral.getNames(), function(p)
+    return { text = ("%s types: %s"):format(p, textutils.serializeJSON({ peripheral.getType(p) })) }
   end)
 end
 mngCmdHandler:addCommand("plist", listPeripherals, nil, "List all peripherals on the network")
@@ -526,7 +532,7 @@ local function addRequestCmd(reqType, cmds)
   if not peripheral.hasType(invName, "inventory") then
     return errorMessage("addRequest", ("%s is not a valid inventory"):format(invName))
   end
-  local req = {count = cnt}
+  local req = { count = cnt }
   req[reqType] = reqData
   globalLogi:addRequest(invName, req)
   return statusMessage(("Successfully added request to %s for %d of %s"):format(invName, cnt, reqData))
@@ -547,17 +553,17 @@ end
 
 local function genLogiStorageEntry(name)
   return {
-    {text = "["},
+    { text = "[" },
     suggestCommand("Remove", "red", logiCmdHandler:suggestCommand("removeStorage", name)),
-    {text = "] : " .. name},
+    { text = "] : " .. name },
   }
 end
 
 local function genLogiProviderEntry(name)
   return {
-    {text = "["},
+    { text = "[" },
     suggestCommand("Remove", "red", logiCmdHandler:suggestCommand("removeProvider", name)),
-    {text = "] : " .. name},
+    { text = "] : " .. name },
   }
 end
 
@@ -572,11 +578,12 @@ local function genRequestEntry(req, index, inv)
   local nameOrTag = req.name or req.tag
   local suggestArgs = ("%s %s %d"):format(inv, nameOrTag, req.count)
   return {
-    {text = "["},
-    req.name and suggestCommand("Edit", "green", logiCmdHandler:suggestCommand("addNameRequest", suggestArgs)) or suggestCommand("Edit", "green", logiCmdHandler:suggestCommand("addTagRequest", suggestArgs)),
-    {text = "] ["},
+    { text = "[" },
+    req.name and suggestCommand("Edit", "green", logiCmdHandler:suggestCommand("addNameRequest", suggestArgs)) or
+    suggestCommand("Edit", "green", logiCmdHandler:suggestCommand("addTagRequest", suggestArgs)),
+    { text = "] [" },
     suggestCommand("Remove", "red", logiCmdHandler:suggestCommand("removeRequest", ("%s %s"):format(inv, nameOrTag))),
-    {text = ("] : %s %d"):format(nameOrTag, req.count) }
+    { text = ("] : %s %d"):format(nameOrTag, req.count) }
   }
 end
 local function genLogiRequestEntry(req, inv)
@@ -590,10 +597,13 @@ logiCmdHandler:addCommand("help", runHelp, nil, "Prints this menu", nil, logiCmd
 logiCmdHandler:addCommand("addStorage", addStorerCmd, nil, "Adds an inventory as storage", "<inventory name>")
 logiCmdHandler:addCommand("addProvider", addProviderCmd, nil, "Adds an inventory as a provider", "<inventory name>")
 logiCmdHandler:addCommand("removeStorage", removeStorerCmd, nil, "Removes an inventory as storage", "<inventory name>")
-logiCmdHandler:addCommand("removeProvider", removeProviderCmd, nil, "Removes an inventory as a provider", "<inventory name>")
-logiCmdHandler:addCommand("addNameRequest", addRequestCmd, nil, "Adds an item name request to an inventory", "<inventory name> <item name> <min count>", "name")
+logiCmdHandler:addCommand("removeProvider", removeProviderCmd, nil, "Removes an inventory as a provider",
+  "<inventory name>")
+logiCmdHandler:addCommand("addNameRequest", addRequestCmd, nil, "Adds an item name request to an inventory",
+  "<inventory name> <item name> <min count>", "name")
 -- logiCmdHandler:addCommand("addTagRequest", addRequestCmd, nil, "Adds an item tag request to an inventory", "<inventory name> <item tag> <min count>", "tag")
-logiCmdHandler:addCommand("removeRequest", removeRequestCmd, nil, "Removes a request from an inventory", "<inventory name> <item tag or name>")
+logiCmdHandler:addCommand("removeRequest", removeRequestCmd, nil, "Removes a request from an inventory",
+  "<inventory name> <item tag or name>")
 logiCmdHandler:addCommand("listStorage", listStorageCmd, nil, "Lists all storage inventories")
 logiCmdHandler:addCommand("listProviders", listProvidersCmd, nil, "Lists all provider inventories")
 logiCmdHandler:addCommand("listRequests", listRequestsCmd, nil, "Lists all requests in the system")
