@@ -159,7 +159,23 @@ end
 
 -- end InvManager
 
--- TODO: Crafting manager
+-- CraftManager
+local CraftManager = {}
+local craftMngSaveFile = "crafts.dat"
+CraftManager.__index = CraftManager
+function CraftManager:new()
+  o = loadFile(craftMngSaveFile) or {}
+  setmetatable(o, self)
+  o.recipes = o.recipes or {}
+  o.crafters = o.crafters or {}
+  return o
+end
+
+function CraftManager:save()
+  writeFile(craftMngSaveFile, self)
+end
+
+-- End CraftManager
 
 -- Logistics
 local LogiSystem = {}
