@@ -150,8 +150,10 @@ function InvManager:pushItem(dest, filter, count)
     print(textutils.serialize(item))
     local itemCount = item.count
     local prevPushed = pushed
-    while pushed < count and (pushed - prevPushed) < itemCount do
-      pushed = pushed + self.periph.pushItems(dest, slot, count)
+    local thisPush = -1
+    while pushed < count and (pushed - prevPushed) < itemCount and thisPush ~= 0 do
+      thisPush = self.periph.pushItems(dest, slot, count)
+      pushed = pushed + thisPush
     end
   end
   return pushed
